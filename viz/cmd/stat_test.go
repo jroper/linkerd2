@@ -1,11 +1,14 @@
 package cmd
 
 import (
+	"fmt"
+	"reflect"
 	"testing"
 
 	pkgcmd "github.com/linkerd/linkerd2/pkg/cmd"
 	"github.com/linkerd/linkerd2/pkg/k8s"
 	api "github.com/linkerd/linkerd2/viz/metrics-api"
+	"github.com/spf13/cobra"
 )
 
 type paramsExp struct {
@@ -225,6 +228,39 @@ func TestStat(t *testing.T) {
 			t.Fatalf("Expected error [%s] instead got [%s]", expectedError, err)
 		}
 	})
+}
+
+func TestValidArgsFunction(t *testing.T) {
+	cmd := NewCmdStat()
+	testCases := []struct {
+		args              []string
+		toComplete        string
+		expected          []string
+		expectedDirective cobra.ShellCompDirective
+	}{
+		{
+			args:              []string{"deployment"},
+			toComplete:        "emo",
+			expected:          []string{"emoji-svc"},
+			expectedDirective: cobra.ShellCompDirectiveDefault,
+		},
+	}
+
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("ValidArgsFunction test#%d\n", i+1), func(t *testing.T) {
+			tc := tc //pin
+			actual, shellCompDir := cmd.ValidArgsFunction(cmd, tc.args, tc.toComplete)
+
+			if !reflect.DeepEqual(tc.expected, actual) {
+				t.Errorf("expected completion to be %+v, but got %+v", tc.expected, actual)
+			}
+
+			if tc.expectedDirective != shellCompDir {
+				t.Errorf("expected ShellCompDirective to be %+v, but got %+v", tc.expectedDirective, shellCompDir)
+			}
+		})
+	}
+
 }
 
 func testStatCall(exp paramsExp, resourceType string, t *testing.T) {

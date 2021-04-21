@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -167,8 +168,24 @@ If no resource name is specified, displays stats about all resources of the spec
 
   # Get all inbound stats to the test namespace.
   linkerd viz stat ns/test`,
-		Args:      cobra.MinimumNArgs(1),
-		ValidArgs: pkg.ValidTargets,
+		Args: cobra.MinimumNArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			for _, d := range args {
+				cobra.CompErrorln(fmt.Sprintf("arg: %s\n", d))
+			}
+			cobra.CompErrorln(fmt.Sprintf("toComplete: %s\n", toComplete))
+
+			if len(args) == 0 {
+				return pkg.ValidTargets, cobra.ShellCompDirectiveNoFileComp
+			}
+
+			targets := []string{}
+			autoCmpRegexp := regexp.MustCompile(fmt.Sprintf("^%s.*", toComplete))
+			for _, t := range pkg.ValidTargets {
+autoCmpRegexp.Match()
+			}
+			return pkg.ValidTargets, cobra.ShellCompDirectiveDefault
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if options.namespace == "" {
 				options.namespace = pkgcmd.GetDefaultNamespace(kubeconfigPath, kubeContext)

@@ -8,6 +8,7 @@ import (
 	pkgcmd "github.com/linkerd/linkerd2/pkg/cmd"
 	"github.com/linkerd/linkerd2/pkg/k8s"
 	api "github.com/linkerd/linkerd2/viz/metrics-api"
+	"github.com/linkerd/linkerd2/viz/pkg"
 	"github.com/spf13/cobra"
 )
 
@@ -239,9 +240,27 @@ func TestValidArgsFunction(t *testing.T) {
 		expectedDirective cobra.ShellCompDirective
 	}{
 		{
-			args:              []string{"deployment"},
-			toComplete:        "emo",
-			expected:          []string{"emoji-svc"},
+			args:              []string{},
+			toComplete:        "",
+			expected:          pkg.ValidTargets,
+			expectedDirective: cobra.ShellCompDirectiveDefault,
+		},
+		{
+			args:              []string{},
+			toComplete:        "d",
+			expected:          []string{"daemonset", "deployment"},
+			expectedDirective: cobra.ShellCompDirectiveDefault,
+		},
+		{
+			args:              []string{},
+			toComplete:        "statefulset",
+			expected:          []string{"statefulset"},
+			expectedDirective: cobra.ShellCompDirectiveDefault,
+		},
+		{
+			args:              []string{"deploy"},
+			toComplete:        "",
+			expected:          []string{"web"},
 			expectedDirective: cobra.ShellCompDirectiveDefault,
 		},
 	}

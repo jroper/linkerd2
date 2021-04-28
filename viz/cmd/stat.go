@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"regexp"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -19,7 +18,6 @@ import (
 	"github.com/linkerd/linkerd2/pkg/k8s"
 	pb "github.com/linkerd/linkerd2/viz/metrics-api/gen/viz"
 	"github.com/linkerd/linkerd2/viz/metrics-api/util"
-	"github.com/linkerd/linkerd2/viz/pkg"
 	"github.com/linkerd/linkerd2/viz/pkg/api"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -170,21 +168,20 @@ If no resource name is specified, displays stats about all resources of the spec
   linkerd viz stat ns/test`,
 		Args: cobra.MinimumNArgs(1),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			for _, d := range args {
-				cobra.CompErrorln(fmt.Sprintf("arg: %s\n", d))
-			}
-			cobra.CompErrorln(fmt.Sprintf("toComplete: %s\n", toComplete))
+			// TODO: remove this line once https://github.com/spf13/cobra/pull/1265 is fixed
+			ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancelFn()
 
-			if len(args) == 0 {
-				return pkg.ValidTargets, cobra.ShellCompDirectiveNoFileComp
+			k8sAPI, err := k8s.NewAPI(kubeconfigPath, kubeContext, impersonate, impersonateGroup, 0)
+			if err != nil {
+				return nil, cobra.ShellCompDirectiveError
+			}
+			results, err := k8s.Complete(ctx, k8sAPI, options.namespace, args, toComplete)
+			if err != nil {
+				return nil, cobra.ShellCompDirectiveError
 			}
 
-			targets := []string{}
-			autoCmpRegexp := regexp.MustCompile(fmt.Sprintf("^%s.*", toComplete))
-			for _, t := range pkg.ValidTargets {
-autoCmpRegexp.Match()
-			}
-			return pkg.ValidTargets, cobra.ShellCompDirectiveDefault
+			return results, cobra.ShellCompDirectiveDefault
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if options.namespace == "" {
@@ -246,7 +243,37 @@ autoCmpRegexp.Match()
 	cmd.PersistentFlags().StringVarP(&options.outputFormat, "output", "o", options.outputFormat, "Output format; one of: \"table\" or \"json\" or \"wide\"")
 	cmd.PersistentFlags().StringVarP(&options.labelSelector, "selector", "l", options.labelSelector, "Selector (label query) to filter on, supports '=', '==', and '!='")
 	cmd.PersistentFlags().BoolVar(&options.unmeshed, "unmeshed", options.unmeshed, "If present, include unmeshed resources in the output")
+
+	configureFlagCompletion(cmd)
+
 	return cmd
+}
+
+func configureFlagCompletion(cmd *cobra.Command) {
+	// TODO: remove this line once https://github.com/spf13/cobra/pull/1265 is fixed
+	ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelFn()
+
+	k8sAPI, err := k8s.NewAPI(kubeconfigPath, kubeContext, impersonate, impersonateGroup, 0)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	err = cmd.RegisterFlagCompletionFunc("namespace",
+		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			results, err := k8s.FlagComplete(ctx, k8sAPI, "namespaces", toComplete)
+			if err != nil {
+				cobra.CompErrorln(err.Error())
+				return nil, cobra.ShellCompDirectiveError
+			}
+
+			return results, cobra.ShellCompDirectiveDefault
+		})
+
+	if err != nil {
+		log.Error(err)
+	}
 }
 
 func respToRows(resp *pb.StatSummaryResponse) []*pb.StatTable_PodGroup_Row {
